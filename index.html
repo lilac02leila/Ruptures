@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saisie des Ruptures</title>
+    <style>
+        /* Palette de couleurs */
+        :root {
+            --primary: #50d7f5;
+            --secondary: #60A5FA;
+            --background: #F3F4F6;
+            --white: #FFFFFF;
+            --accent: #5013f8;
+        }
+
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            background-color: var(--background);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--primary);
+            color: var(--white);
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        header img {
+            height: 100px;
+        }
+
+        h1 { margin: 0; }
+
+        main {
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: var(--white);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            border: 1px solid var(--primary);
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: var(--secondary);
+            color: var(--white);
+        }
+
+        tr:nth-child(even) {
+            background-color: var(--background);
+        }
+
+        .editable {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            text-align: center;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: var(--white);
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+            transition: 0.3s;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: var(--primary);
+        }
+
+        footer {
+            margin-top: 30px;
+            background-color: var(--primary);
+            color: var(--white);
+            padding: 15px;
+            text-align: center;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Cacher les boutons restreints au début */
+        .btn-restrict {
+            display: none;
+        }
+        /* Cacher la page de confirmation au départ */
+        #confirmationPage {
+        display: none;
+        position: fixed; /* Positionnement absolu par rapport à la fenêtre */
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%); /* Centre parfaitement l'élément */
+    
+        background-color: var(--white);
+        padding: 50px;
+        border-radius: 10px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+        width: 50%;
+        max-width: 600px; /* Empêche une largeur excessive sur grands écrans */
+        text-align: center; /* Centre le texte */
+    }
+
+
+
+    </style>
+</head>
+<body>
+    <!-- Page de confirmation -->
+    <div id="confirmationPage">
+        <h2>✅ Merci pour votre saisie !</h2>
+        <p>Vos données ont été enregistrées avec succès.</p>
+        <button onclick="retourFormulaire()">🔄 Nouvelle saisie</button>
+    </div>
+    <header>
+        <img src="logo.png" alt="Logo">
+        <h1>📋 Formulaire de Saisie des Ruptures</h1>
+    </header>
+    <div id="formPage">
+        <main>
+            <p>Combien de ruptures avez-vous cette semaine ?</p>
+            <input type="number" id="nombreRuptures" min="1" value="1">
+            <button onclick="genererTableau()">Générer le tableau</button>
+
+            <p>Collez directement vos données dans la première cellule du tableau :</p>
+
+            <table id="ruptureTable">
+                <tr>
+                    <th>Semaine de rupture</th>
+                    <th>Fournisseur</th>
+                    <th>IFLS</th>
+                    <th>EAN</th>
+                    <th>PCB</th>
+                    <th>Libellé article</th>
+                    <th>Raison de rupture</th>
+                    <th>Durée</th>
+                    <th>Impact Promo</th>
+                    <th>Date de livraison</th>
+                    <th>Commentaires</th>
+                    <th>Supprimer</th>
+                </tr>
+            </table>
+
+            <button onclick="envoyerData()">📩 ENVOYER</button>
+        </main>
+            <!-- Bouton pour débloquer les fonctionnalités -->
+            <button onclick="demanderAcces()">🔑 Accès Entreprise</button>
+
+            <!-- Boutons cachés au départ -->
+            <button class="btn-restrict" onclick="demanderCode1()">📜 Voir l'historique</button>
+            <button class="btn-restrict" onclick="demanderCode2()">🗑️ Effacer l'historique</button>
+            <button class="btn-restrict" onclick="exporterCSV()">📤 Exporter en CSV</button>
+            <button class="btn-restrict" onclick="exporterXLSX()">📤 Exporter en XLSX</button>
+            <button class="btn-restrict" onclick="retourner()">⏎ Retour</button>
+
+            <div id="historique"></div>
+        </main>
+        <div id="historique"></div>
+        
+
+        
+    <footer>
+            📧 Contact : <a href="mailto:filiere_liquide@carrefour.com">filiere_liquide@carrefour.com</a>
+    </footer>
+        
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+
+    <script>
+        const CODE_SECRET = "Carrefour"; // Change ce code si besoin !
+
+        function demanderAcces() {
+            let codeEntre = prompt("🔑 Entrez le code secret pour débloquer les fonctionnalités :");
+
+            if (codeEntre === CODE_SECRET) {
+                document.querySelectorAll(".btn-restrict").forEach(btn => btn.style.display = "inline-block");
+            } else {
+                alert("⛔ Code incorrect !");
+            }
+        }
+        function genererTableau() {
+            let rowCount = parseInt(document.getElementById("nombreRuptures").value) || 1;
+            let table = document.getElementById("ruptureTable");
+
+            while (table.rows.length > 1) {
+                table.deleteRow(1);
+            }
+
+            for (let i = 0; i < rowCount; i++) {
+                ajouterLigne(table);
+            }
+        }
+
+        function ajouterLigne(table) {
+            let row = table.insertRow();
+            let columns = ["Semaine_de_rupture", "Fournisseur", "IFLS", "EAN", "PCB", "Libelle", "Raison", "Durée", "ImpactPromo", "SemaineLivraison", "Commentaires"];
+
+            columns.forEach(col => {
+                let cell = row.insertCell();
+                let input = document.createElement("input");
+                input.type = "text";
+                input.classList.add("editable");
+                cell.appendChild(input);
+            });
+
+            let cellDelete = row.insertCell();
+            let btnDelete = document.createElement("button");
+            btnDelete.textContent = "🗑️";
+            btnDelete.onclick = function () { supprimerLigne(row); };
+            cellDelete.appendChild(btnDelete);
+        }
+
+        document.addEventListener("paste", function (event) {
+            let table = document.getElementById("ruptureTable");
+            let activeElement = document.activeElement;
+
+            if (activeElement.tagName === "INPUT") {
+                let clipboardData = event.clipboardData || window.clipboardData;
+                let pastedText = clipboardData.getData("Text");
+
+                let rows = pastedText.trim().split("\n").map(row => row.split("\t")); // Séparation des lignes et colonnes
+
+                let startRow = activeElement.closest("tr").rowIndex; // Ligne où on commence
+                let startCol = activeElement.closest("td").cellIndex; // Colonne où on commence
+
+                rows.forEach((rowData, rowOffset) => {
+                    let currentRow = table.rows[startRow + rowOffset];
+
+                    if (!currentRow) {
+                        ajouterLigne(table);
+                        currentRow = table.rows[startRow + rowOffset];
+                    }
+
+                    rowData.forEach((cellData, colOffset) => {
+                        let currentCell = currentRow.cells[startCol + colOffset];
+
+                        if (currentCell) {
+                            let input = currentCell.querySelector("input");
+                            if (input) {
+                                input.value = cellData.trim();
+                            }
+                        }
+                    });
+                });
+
+                event.preventDefault(); // Empêcher le collage standard
+            }
+        });
+
+        function supprimerLigne(row) {
+            row.parentNode.removeChild(row);
+        }
+
+        function envoyerData() {
+    console.log("➡️ Fonction envoyerData exécutée");
+
+    let table = document.getElementById("ruptureTable");
+    let rows = table.getElementsByTagName("tr");
+    let data = [];
+
+    for (let i = 1; i < rows.length; i++) {
+        let inputs = rows[i].getElementsByTagName("input");
+        let rowData = [];
+        ["Semaine", "Fournisseur", "IFLS", "EAN", "PCB", "Libelle", "Raison", "Durée", "ImpactPromo", "SemaineLivraison", "Commentaires"].forEach((col, index) => {
+            rowData.push(inputs[index]?.value.trim() || ""); // Vérifie si l'input existe
+        });
+        data.push(rowData);
+    }
+
+    console.log("📊 Données enregistrées :", data);
+
+    let historique = JSON.parse(localStorage.getItem("ruptures")) || [];
+    historique.push({ date: new Date().toLocaleString(), data: data });
+
+    localStorage.setItem("ruptures", JSON.stringify(historique));
+
+    console.log("✅ Données sauvegardées dans localStorage");
+
+    // Vérifier si les éléments existent avant de modifier leur `display`
+    let confirmationPage = document.getElementById("confirmationPage");
+    let formPage = document.getElementById("formPage");
+
+    if (!confirmationPage || !formPage) {
+        console.error("⚠️ Élément introuvable : confirmationPage ou formPage");
+        return;
+    }
+    
+    // Masquer le formulaire et afficher la page de confirmation
+    confirmationPage.style.display = "block";
+    formPage.style.display = "none";
+
+    console.log("🎉 Passage à la page de confirmation");
+}
+
+
+        function demanderCode1() {
+            let codeEntre = prompt("🔑 Entrez le code secret pour voir l'historique :");
+
+            if (codeEntre === CODE_SECRET) {
+                afficherHistorique();
+            } else {
+                alert("⛔ Code incorrect !");
+            }
+        }
+
+        function demanderCode2() {
+            let codeEntre = prompt("🔑 Entrez le code secret pour effacer l'historique :");
+
+            if (codeEntre === CODE_SECRET) {
+                effacerHistorique();
+            } else {
+                alert("⛔ Code incorrect !");
+            }
+        }
+
+        function afficherHistorique() {
+            let historique = JSON.parse(localStorage.getItem("ruptures")) || [];
+            let historiqueDiv = document.getElementById("historique");
+            historiqueDiv.innerHTML = "<h2>📜 Historique des saisies</h2>";
+
+            if (historique.length === 0) {
+                historiqueDiv.innerHTML += "<p>Aucune donnée enregistrée.</p>";
+                return;
+            }
+
+            historique.forEach((entry, index) => {
+                let tableHtml = `<h3>⏳ Saisie du ${entry.date}</h3><table border="1"><tr><th>Semaine</th><th>Fournisseur</th><th>IFLS</th><th>EAN</th><th>PCB</th><th>Libellé</th><th>Raison</th><th>Durée</th><th>Impact</th><th>Livraison</th><th>Commentaires</th></tr>`;
+                
+                entry.data.forEach(row => {
+                    tableHtml += "<tr>";
+                    row.forEach(cell => tableHtml += `<td>${cell}</td>`);
+                    tableHtml += "</tr>";
+                });
+
+                tableHtml += "</table>";
+                historiqueDiv.innerHTML += tableHtml;
+            });
+        }
+        
+        function effacerHistorique() {
+            if (confirm("Voulez-vous vraiment effacer tout l'historique ?")) {
+                localStorage.removeItem("ruptures");
+                document.getElementById("historique").innerHTML = "<h2>📜 Historique effacé</h2>";
+                alert("🗑️ Historique supprimé !");
+            }
+        }
+
+        // Fonction pour exporter en CSV
+        function exporterCSV() {
+            let historique = JSON.parse(localStorage.getItem("ruptures")) || [];
+            if (historique.length === 0) {
+                alert("Aucune donnée à exporter !");
+                return;
+            }
+
+            let csvContent = "Date, Semaine de rupture, Fournisseur, IFLS, EAN, PCB, Libellé article, Raison de rupture, Durée, Impact Promo, Date de livraison, Commentaires\n";
+
+            historique.forEach(entry => {
+                entry.data.forEach(row => {
+                    csvContent += `${entry.date}, ${row.join(", ")}\n`;
+                });
+            });
+
+            let blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "historique_ruptures.csv";
+    
+            link.click();
+        }
+
+        // Fonction pour exporter en XLSX
+        function exporterXLSX() {
+            let historique = JSON.parse(localStorage.getItem("ruptures")) || [];
+            if (historique.length === 0) {
+                alert("Aucune donnée à exporter !");
+                return;
+            }
+
+            let wb = XLSX.utils.book_new();
+            let ws_data = [["Date", "Semaine de rupture", "Fournisseur", "IFLS", "EAN", "PCB", "Libellé article", "Raison de rupture", "Durée", "Impact Promo", "Date de livraison", "Commentaires"]];
+
+            historique.forEach(entry => {
+                entry.data.forEach(row => {
+                    ws_data.push([entry.date, ...row]);
+                });
+            });
+
+            let ws = XLSX.utils.aoa_to_sheet(ws_data);
+            XLSX.utils.book_append_sheet(wb, ws, "Historique");
+            XLSX.writeFile(wb, "historique_ruptures.xlsx");
+        }
+        function retourFormulaire() {
+            // Réinitialiser le formulaire
+            document.getElementById("ruptureTable").innerHTML = `
+                <tr>
+                    <th>Semaine de rupture</th>
+                    <th>Fournisseur</th>
+                    <th>IFLS</th>
+                    <th>EAN</th>
+                    <th>PCB</th>
+                    <th>Libellé article</th>
+                    <th>Raison de rupture</th>
+                    <th>Durée</th>
+                    <th>Impact Promo</th>
+                    <th>Date de livraison</th>
+                    <th>Commentaires</th>
+                    <th>Supprimer</th>
+                </tr>`;
+
+            // Afficher le formulaire et masquer la confirmation
+            document.getElementById("formPage").style.display = "block";
+            document.getElementById("confirmationPage").style.display = "none";
+        }
+        function retourner() {
+        // Masquer les boutons restreints
+        document.querySelectorAll(".btn-restrict").forEach(btn => btn.style.display = "none");
+
+        // Réafficher le bouton Accès Entreprise
+        document.querySelector("button[onclick='demanderAcces()']").style.display = "inline-block";
+        }
+
+    </script>
+
+</body>
+</html>
